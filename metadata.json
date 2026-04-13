@@ -1,0 +1,5 @@
+{
+  "name": "SharksWiki",
+  "description": "A minimal, high-performance personal Wiki system with Markdown support, tree-structured management, and multi-language capabilities.",
+  "requestFramePermissions": []
+}
