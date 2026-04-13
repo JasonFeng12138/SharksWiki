@@ -4,6 +4,9 @@ node_modules
 **/.git
 **/.env
 **/dist
-**/docs
-**/config
+# 仅排除根目录下的运行期数据，不应排除代码中的 config 文件夹
+/docs
+/config
+/backend/docs
+/backend/config
 *.log
