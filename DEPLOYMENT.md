@@ -1,79 +1,200 @@
-# 个人 Wiki 部署与初始化指南
+# SharksWiki 部署与初始化指南
 
-本文档包含数据库的安装、新建、初始化脚本，以及应用的本地部署步骤。
-
-## 1. 数据库安装与初始化
-
-本项目使用 MySQL 数据库来存储用户、权限、文件结构及评论信息。
-
-### 1.1 安装 MySQL
-- **Windows**: 前往 [MySQL 官网](https://dev.mysql.com/downloads/installer/) 下载安装程序并按提示安装。
-- **macOS**: 使用 Homebrew 安装：`brew install mysql`，然后启动服务 `brew services start mysql`。
-- **Linux (Ubuntu/Debian)**: 运行 `sudo apt update && sudo apt install mysql-server`。
-
-### 1.2 创建数据库与表结构
-1. 登录 MySQL 控制台：
-   ```bash
-   mysql -u root -p
-   ```
-2. 执行项目根目录下的 `database_init.sql` 脚本：
-   ```bash
-   mysql -u root -p < database_init.sql
-   ```
-   *或者在 MySQL 命令行中执行：*
-   ```sql
-   source /你的项目路径/database_init.sql;
-   ```
-
-### 1.3 数据库配置说明
-初始脚本会自动创建名为 `personal_wiki` 的数据库，并包含以下表：
-- `permission_groups`: 权限组表（记录创建、新增、删除、编辑、评论等权限）
-- `users`: 人员表（记录账号、密码、匿名名称等，默认包含一个 admin 账号）
-- `user_permissions`: 人员权限关联表（人员与权限组的映射）
-- `file_nodes`: 目录与文件信息表（记录文件标题、路径、创建人、修改人等）
-- `comments`: 评论表（记录评论内容、评论人、回复目标等）
+本文档包含数据库初始化、本地开发启动以及 Docker 一键部署的完整步骤。
 
 ---
 
-## 2. 应用初始化与部署
+## 目录结构
 
-### 2.1 环境准备
-- 确保已安装 **Node.js** (推荐 v18 或更高版本)。
-- 确保已安装包管理工具 (npm 或 yarn)。
-
-### 2.2 安装依赖
-在项目根目录下，打开终端并运行：
-```bash
-npm install
+```
+SharksWiki/
+├── frontend/          # React 前端（Vite + TypeScript）
+├── backend/           # Node.js 后端（Express + MySQL）
+├── database_init.sql  # 数据库初始化脚本
+├── Dockerfile         # 多阶段构建（前端 + 后端合并镜像）
+├── docker-compose.yml # Docker 一键编排文件
+└── .env.example       # Docker 环境变量示例
 ```
 
-### 2.3 启动应用
+---
 
-**开发模式（支持热更新）：**
+## 方式一：Docker 一键部署（推荐）
+
+### 前置条件
+- 已安装 [Docker](https://docs.docker.com/get-docker/) 和 [Docker Compose](https://docs.docker.com/compose/install/)（v2.x）
+
+### 步骤
+
+**1. 配置环境变量**
+
 ```bash
+cp .env.example .env
+```
+
+编辑 `.env`，设置安全的密码和 JWT 密钥：
+
+```dotenv
+MYSQL_ROOT_PASSWORD=your_strong_root_password
+MYSQL_PASSWORD=your_strong_wiki_password
+JWT_SECRET=your_long_random_secret   # 推荐：openssl rand -base64 48
+APP_PORT=3001
+```
+
+**2. 一键构建并启动**
+
+```bash
+docker compose up -d --build
+```
+
+Docker 会自动完成：
+- 构建前端 React 项目
+- 编译后端 TypeScript
+- 启动 MySQL 8.0 并执行数据库初始化脚本
+- 启动应用服务，托管前端静态文件与后端 API
+
+**3. 访问应用**
+
+浏览器打开 `http://localhost:3001`
+
+默认管理员账号：
+| 账号 | 密码 |
+|------|------|
+| admin | 123456 |
+
+> **安全提示**：首次登录后请立即修改密码。初始密码在数据库中以 MD5 格式存储，后端在首次登录时会自动升级为 bcrypt 格式。
+
+**4. 常用 Docker 命令**
+
+```bash
+# 查看运行状态
+docker compose ps
+
+# 查看日志
+docker compose logs -f app
+docker compose logs -f mysql
+
+# 停止服务
+docker compose down
+
+# 停止并清除所有数据（危险！）
+docker compose down -v
+```
+
+---
+
+## 方式二：本地手动部署
+
+### 前置条件
+- Node.js v18+
+- MySQL 8.0+
+
+### 1. 数据库安装与初始化
+
+**安装 MySQL：**
+- **macOS**：`brew install mysql && brew services start mysql`
+- **Linux (Ubuntu/Debian)**：`sudo apt update && sudo apt install mysql-server`
+- **Windows**：前往 [MySQL 官网](https://dev.mysql.com/downloads/installer/) 下载安装
+
+**创建数据库：**
+
+```bash
+mysql -u root -p < database_init.sql
+```
+
+或在 MySQL 命令行中：
+
+```sql
+source /your/project/path/database_init.sql;
+```
+
+**（可选）创建专用数据库用户：**
+
+```sql
+CREATE USER 'wiki_user'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON personal_wiki.* TO 'wiki_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+### 2. 启动后端
+
+```bash
+cd backend
+cp .env.example .env
+# 编辑 .env，填写数据库连接信息和 JWT_SECRET
+npm install
+npm run dev      # 开发模式（支持热重载）
+# 或
+npm run build && npm run start   # 生产模式
+```
+
+后端默认运行在 `http://localhost:3001`。
+
+### 3. 启动前端（开发模式）
+
+为使前端请求能代理到后端，需先在 `frontend/vite.config.ts` 的 `server` 配置中添加代理：
+
+```ts
+server: {
+  hmr: process.env.DISABLE_HMR !== 'true',
+  proxy: {
+    '/api': 'http://localhost:3001',
+  },
+},
+```
+
+然后启动前端开发服务器：
+
+```bash
+cd frontend
+npm install
 npm run dev
 ```
-启动后，访问 `http://localhost:3000` 即可预览应用。
 
-**生产模式部署：**
-1. 构建前端静态资源：
-   ```bash
-   npm run build
-   ```
-2. 启动生产环境服务器：
-   ```bash
-   npm run start
-   ```
-   生产环境下，Express 会直接提供 `dist` 目录下的静态文件，并运行在 3000 端口。
+访问 `http://localhost:5173` 进行开发预览。
 
-### 2.4 目录结构说明
-- `docs/`: 存放实际的 Markdown 文件，应用启动时会自动创建。
-- `src/`: 前端 React 源码。
-- `server.ts`: 后端 Express 服务入口。
-- `database_init.sql`: 数据库初始化脚本。
-- `DEPLOYMENT.md`: 部署说明文档。
+### 4. 生产模式构建
+
+```bash
+# 构建前端
+cd frontend && npm run build
+
+# 在后端 .env 中设置
+# NODE_ENV=production
+# FRONTEND_DIST=../frontend/dist
+
+# 启动后端（同时托管前端静态文件）
+cd backend && npm run start
+```
+
+访问 `http://localhost:3001`。
 
 ---
 
-## 3. 后续扩展说明
-目前的 Wiki 系统采用的是本地文件系统直接读写。为了接入刚刚创建的 MySQL 数据库，您后续需要在 `server.ts` 中引入数据库驱动（如 `mysql2` 或 `prisma`），将文件的新增、修改、删除操作与 `file_nodes` 表同步，并开发登录鉴权及评论相关的 API 接口。
+## 数据库表结构说明
+
+| 表名 | 说明 |
+|------|------|
+| `permission_groups` | 权限组（创建目录、新增/删除/编辑文件、评论等权限） |
+| `users` | 用户表（账号、bcrypt 密码、显示名称） |
+| `user_permissions` | 用户与权限组的多对多关联 |
+| `file_nodes` | 目录与文件元数据（树形结构，物理文件存于 `docs/` 目录） |
+| `comments` | 文件评论（支持回复） |
+
+---
+
+## 环境变量说明（backend/.env）
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `PORT` | `3001` | 后端监听端口 |
+| `NODE_ENV` | `development` | 运行环境 |
+| `DB_HOST` | `localhost` | MySQL 主机 |
+| `DB_PORT` | `3306` | MySQL 端口 |
+| `DB_USER` | `root` | 数据库用户名 |
+| `DB_PASSWORD` | *(空)* | 数据库密码 |
+| `DB_NAME` | `personal_wiki` | 数据库名 |
+| `JWT_SECRET` | *(需修改)* | JWT 签名密钥，生产环境必须设置为随机长字符串 |
+| `JWT_EXPIRES_IN` | `7d` | Token 有效期 |
+| `DOCS_DIR` | `./docs` | Markdown 文件存储目录 |
+| `CONFIG_DIR` | `./config` | Wiki 配置及上传文件目录 |
+| `FRONTEND_DIST` | `../frontend/dist` | 生产模式前端静态文件目录 |
