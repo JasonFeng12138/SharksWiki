@@ -1,0 +1,43 @@
+# docker-compose.db.yml — 数据库服务（独立生命周期）
+#
+# 用法：
+#   首次启动：docker compose -f docker-compose.db.yml up -d
+#   停止数据库：docker compose -f docker-compose.db.yml stop
+#
+# ⚠️  重要：此文件管理 MySQL 数据，切勿与应用一同执行 down -v，
+#           否则会删除所有数据。正常情况下只需启动一次，长期保持运行。
+
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: sharkswiki-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: personal_wiki
+      MYSQL_USER: wiki_user
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wiki_password}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database_init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command: --default-time-zone=+08:00 --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - sharkswiki-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+volumes:
+  mysql_data:
+    name: sharkswiki_mysql_data
+
+networks:
+  sharkswiki-net:
+    name: sharkswiki-net

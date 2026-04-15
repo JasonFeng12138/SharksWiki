@@ -1,6 +1,6 @@
 # SharksWiki 部署与初始化指南
 
-本文档包含数据库初始化、本地开发启动以及 Docker 一键部署的完整步骤。
+本文档包含数据库初始化、本地开发启动以及 Docker 部署的完整步骤。
 
 ---
 
@@ -8,22 +8,27 @@
 
 ```
 SharksWiki/
-├── frontend/          # React 前端（Vite + TypeScript）
-├── backend/           # Node.js 后端（Express + MySQL）
-├── database_init.sql  # 数据库初始化脚本
-├── Dockerfile         # 多阶段构建（前端 + 后端合并镜像）
-├── docker-compose.yml # Docker 一键编排文件
-└── .env.example       # Docker 环境变量示例
+├── frontend/              # React 前端（Vite + TypeScript）
+├── backend/               # Node.js 后端（Express + MySQL）
+├── database_init.sql      # 数据库初始化脚本
+├── Dockerfile             # 多阶段构建（前端 + 后端合并镜像）
+├── docker-compose.db.yml  # 数据库服务（独立生命周期，长期运行）
+├── docker-compose.yml     # 应用服务（可独立重新部署）
+└── .env.example           # 环境变量示例
 ```
 
 ---
 
-## 方式一：Docker 一键部署（推荐）
+## 方式一：Docker 部署（推荐）
+
+数据库与应用服务**分离管理**，重新部署应用时不会影响数据库数据。
 
 ### 前置条件
 - 已安装 [Docker](https://docs.docker.com/get-docker/) 和 [Docker Compose](https://docs.docker.com/compose/install/)（v2.x）
 
-### 步骤
+---
+
+### 首次部署
 
 **1. 配置环境变量**
 
@@ -40,7 +45,20 @@ JWT_SECRET=your_long_random_secret   # 推荐：openssl rand -base64 48
 APP_PORT=3001
 ```
 
-**2. 一键构建并启动**
+**2. 启动数据库（仅需执行一次）**
+
+```bash
+docker compose -f docker-compose.db.yml up -d
+```
+
+等待 MySQL 健康检查通过（约 30 秒），可通过以下命令确认：
+
+```bash
+docker compose -f docker-compose.db.yml ps
+# STATUS 列应显示 healthy
+```
+
+**3. 构建并启动应用**
 
 ```bash
 docker compose up -d --build
@@ -49,10 +67,9 @@ docker compose up -d --build
 Docker 会自动完成：
 - 构建前端 React 项目
 - 编译后端 TypeScript
-- 启动 MySQL 8.0 并执行数据库初始化脚本
 - 启动应用服务，托管前端静态文件与后端 API
 
-**3. 访问应用**
+**4. 访问应用**
 
 浏览器打开 `http://localhost:3001`
 
@@ -61,23 +78,38 @@ Docker 会自动完成：
 |------|------|
 | admin | 123456 |
 
-> **安全提示**：首次登录后请立即修改密码。初始密码在数据库中以 MD5 格式存储，后端在首次登录时会自动升级为 bcrypt 格式。
+> **安全提示**：首次登录后请立即修改密码。初始密码以 MD5 格式存储，后端首次登录时会自动升级为 bcrypt 格式。
 
-**4. 常用 Docker 命令**
+---
+
+### 重新部署应用（不影响数据库）
+
+只需重新构建并重启应用容器，数据库持续运行，数据完全保留：
 
 ```bash
-# 查看运行状态
-docker compose ps
+docker compose up -d --build --force-recreate
+```
 
-# 查看日志
-docker compose logs -f app
-docker compose logs -f mysql
+---
 
-# 停止服务
-docker compose down
+### 常用运维命令
 
-# 停止并清除所有数据（危险！）
-docker compose down -v
+```bash
+# ── 查看状态 ──────────────────────────────────────────
+docker compose ps                        # 查看应用状态
+docker compose -f docker-compose.db.yml ps  # 查看数据库状态
+
+# ── 查看日志 ──────────────────────────────────────────
+docker compose logs -f app               # 实时查看应用日志
+docker compose -f docker-compose.db.yml logs -f mysql  # 实时查看数据库日志
+
+# ── 停止服务 ──────────────────────────────────────────
+docker compose down                      # 停止并删除应用容器（数据库不受影响）
+docker compose -f docker-compose.db.yml stop  # 仅停止数据库（数据保留）
+
+# ── 危险操作（谨慎执行）──────────────────────────────
+# 彻底删除数据库数据（不可恢复！）
+docker compose -f docker-compose.db.yml down -v
 ```
 
 ---

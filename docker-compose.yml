@@ -1,28 +1,16 @@
+# docker-compose.yml — 应用服务
+#
+# 用法：
+#   首次部署：docker compose up -d --build
+#   重新部署（不影响数据库）：docker compose up -d --build --force-recreate
+#   停止应用：docker compose down
+#
+# ⚠️  前提：MySQL 必须已通过 docker-compose.db.yml 启动，
+#           且共享网络 sharkswiki-net 已存在。
+
 version: '3.8'
 
 services:
-  # ── MySQL 数据库 ─────────────────────────────────────────────────────────────
-  mysql:
-    image: mysql:8.0
-    container_name: sharkswiki-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
-      MYSQL_DATABASE: personal_wiki
-      MYSQL_USER: wiki_user
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-wiki_password}
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./database_init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-
   # ── Wiki 应用（后端 + 前端静态文件）──────────────────────────────────────────
   app:
     build:
@@ -30,13 +18,10 @@ services:
       dockerfile: Dockerfile
     container_name: sharkswiki-app
     restart: unless-stopped
-    depends_on:
-      mysql:
-        condition: service_healthy
     environment:
       NODE_ENV: production
       PORT: 3001
-      DB_HOST: mysql
+      DB_HOST: sharkswiki-mysql
       DB_PORT: 3306
       DB_USER: wiki_user
       DB_PASSWORD: ${MYSQL_PASSWORD:-wiki_password}
@@ -51,8 +36,14 @@ services:
     volumes:
       - docs_data:/app/docs
       - config_data:/app/config
+    networks:
+      - sharkswiki-net
 
 volumes:
-  mysql_data:
   docs_data:
   config_data:
+
+networks:
+  sharkswiki-net:
+    external: true
+    name: sharkswiki-net

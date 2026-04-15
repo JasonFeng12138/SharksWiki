@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 
 import authRouter from './routes/auth.router.js';
 import usersRouter from './routes/users.router.js';
+import permissionGroupsRouter from './routes/permission-groups.router.js';
 import documentsRouter from './routes/documents.router.js';
 import commentsRouter from './routes/comments.router.js';
 import configRouter from './routes/config.router.js';
@@ -26,6 +27,7 @@ app.use(express.json());
 // ── API 路由 ────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/permission-groups', permissionGroupsRouter);
 app.use('/api/documents', documentsRouter);
 app.use('/api/comments', commentsRouter);
 app.use('/api/config', configRouter);

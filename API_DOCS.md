@@ -81,6 +81,96 @@
   }
   ```
 
+### 2.3 获取用户列表（仅管理员）
+- **接口**: `GET /api/users`
+- **认证**: 需 Bearer Token，且用户须拥有所有权限（超级管理员）
+- **Query 参数**:
+  | 参数 | 类型 | 默认值 | 说明 |
+  |------|------|--------|------|
+  | `page` | number | 1 | 页码 |
+  | `pageSize` | number | 10 | 每页条数 |
+- **响应数据**:
+  ```json
+  {
+    "total": 12,
+    "page": 1,
+    "pageSize": 10,
+    "items": [
+      {
+        "id": 1,
+        "account": "admin",
+        "name": "管理员",
+        "is_enabled": true,
+        "group_id": 1,
+        "group_name": "管理员组",
+        "permissions": {
+          "can_create_dir": true,
+          "can_add_file": true,
+          "can_delete_file": true,
+          "can_edit_file": true,
+          "can_comment": true
+        }
+      }
+    ]
+  }
+  ```
+
+### 2.4 创建用户（仅管理员）
+- **接口**: `POST /api/users`
+- **认证**: 需 Bearer Token，且用户须拥有所有权限（超级管理员）
+- **请求参数**:
+  ```json
+  {
+    "account": "new_user",
+    "name": "显示名称",
+    "password": "password123",
+    "group_id": 2
+  }
+  ```
+- **说明**: `group_id` 必须是已存在的权限组 ID，账号只能包含字母、数字和下划线（3-30位），密码最少 6 位。
+- **响应**:
+  ```json
+  { "message": "用户创建成功", "userId": 5 }
+  ```
+
+### 2.5 修改用户权限组（仅管理员）
+- **接口**: `PUT /api/users/:id/group`
+- **认证**: 需 Bearer Token，且用户须拥有所有权限（超级管理员）
+- **请求参数**:
+  ```json
+  { "group_id": 3 }
+  ```
+- **响应**:
+  ```json
+  { "message": "权限组更新成功" }
+  ```
+
+### 2.6 启用/禁用用户（仅管理员）
+- **接口**: `PUT /api/users/:id/status`
+- **认证**: 需 Bearer Token，且用户须拥有所有权限（超级管理员）
+- **请求参数**:
+  ```json
+  { "is_enabled": false }
+  ```
+- **说明**: 不可禁用自己。
+- **响应**:
+  ```json
+  { "message": "用户状态更新成功" }
+  ```
+
+### 2.7 删除用户（仅管理员）
+- **接口**: `DELETE /api/users/:id`
+- **认证**: 需 Bearer Token，且用户须拥有所有权限（超级管理员）
+- **说明**: 只能删除 `is_enabled = false`（已禁用）的用户，且不能删除自身。删除时同步清除 `user_permissions` 记录。
+- **响应**:
+  ```json
+  { "message": "用户已删除" }
+  ```
+- **失败响应**:
+  ```json
+  { "message": "只能删除已禁用的用户" }
+  ```
+
 ---
 
 ## 3. 文档与目录 (Documents)
@@ -220,4 +310,65 @@
   {
     "url": "/api/uploads/wiki_icon_123.png"
   }
+  ```
+
+---
+
+## 6. 权限组管理 (Permission Groups)
+
+> 所有接口均需 Bearer Token，且操作用户须拥有所有权限（超级管理员）。
+
+### 6.1 获取权限组列表
+- **接口**: `GET /api/permission-groups`
+- **响应数据**:
+  ```json
+  [
+    {
+      "group_id": 1,
+      "group_name": "管理员组",
+      "can_create_dir": true,
+      "can_add_file": true,
+      "can_delete_file": true,
+      "can_edit_file": true,
+      "can_comment": true
+    }
+  ]
+  ```
+
+### 6.2 创建权限组
+- **接口**: `POST /api/permission-groups`
+- **请求参数**:
+  ```json
+  {
+    "group_name": "只读用户",
+    "can_create_dir": false,
+    "can_add_file": false,
+    "can_delete_file": false,
+    "can_edit_file": false,
+    "can_comment": true
+  }
+  ```
+- **响应**:
+  ```json
+  { "message": "权限组创建成功", "group_id": 3 }
+  ```
+
+### 6.3 更新权限组
+- **接口**: `PUT /api/permission-groups/:id`
+- **请求参数**: 同 6.2（字段均可选，仅传需修改的字段）
+- **响应**:
+  ```json
+  { "message": "权限组更新成功" }
+  ```
+
+### 6.4 删除权限组
+- **接口**: `DELETE /api/permission-groups/:id`
+- **说明**: 若该权限组下仍有用户，删除将失败（返回 400）。
+- **响应**:
+  ```json
+  { "message": "权限组删除成功" }
+  ```
+- **失败响应**:
+  ```json
+  { "message": "该权限组下仍有用户，无法删除" }
   ```

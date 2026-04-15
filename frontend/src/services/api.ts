@@ -3,12 +3,54 @@ export interface User {
   account: string;
   name: string;
   permissions: {
-    can_create_dir: boolean;
-    can_add_file: boolean;
-    can_delete_file: boolean;
-    can_edit_file: boolean;
+    can_read: boolean;
     can_comment: boolean;
+    can_add_file: boolean;
+    can_edit_file: boolean;
+    can_create_dir: boolean;
+    can_delete_file: boolean;
+    can_admin: boolean;
   };
+}
+
+/** 权限目录条目（来自 permissions 表） */
+export interface Permission {
+  permission_key: string;
+  display_name: string;
+  description: string | null;
+  sort_order: number;
+}
+
+/** 权限组（权限列表为 permission_key 数组） */
+export interface PermissionGroup {
+  group_id: number;
+  group_name: string;
+  permission_keys: string[];
+}
+
+export interface UserListItem {
+  id: number;
+  account: string;
+  name: string;
+  is_enabled: boolean;
+  group_id: number | null;
+  group_name: string | null;
+  permissions: {
+    can_read: boolean;
+    can_comment: boolean;
+    can_add_file: boolean;
+    can_edit_file: boolean;
+    can_create_dir: boolean;
+    can_delete_file: boolean;
+    can_admin: boolean;
+  };
+}
+
+export interface UserListResponse {
+  total: number;
+  page: number;
+  pageSize: number;
+  items: UserListItem[];
 }
 
 export interface FileNode {
@@ -83,6 +125,67 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify({ name })
     });
+  },
+
+  getUsers: async (page = 1, pageSize = 10): Promise<UserListResponse> => {
+    return fetchApi(`/api/users?page=${page}&pageSize=${pageSize}`);
+  },
+
+  createUser: async (data: {
+    account: string;
+    name: string;
+    password: string;
+    group_id: number;
+  }): Promise<{ code: number; message: string; userId: number }> => {
+    return fetchApi('/api/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateUserGroup: async (userId: number, group_id: number): Promise<void> => {
+    return fetchApi(`/api/users/${userId}/group`, {
+      method: 'PUT',
+      body: JSON.stringify({ group_id }),
+    });
+  },
+
+  updateUserStatus: async (userId: number, is_enabled: boolean): Promise<void> => {
+    return fetchApi(`/api/users/${userId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_enabled }),
+    });
+  },
+
+  deleteUser: async (userId: number): Promise<void> => {
+    return fetchApi(`/api/users/${userId}`, { method: 'DELETE' });
+  },
+
+  // Permission Groups
+  getPermissionCatalog: async (): Promise<Permission[]> => {
+    return fetchApi('/api/permission-groups/catalog');
+  },
+
+  getPermissionGroups: async (): Promise<PermissionGroup[]> => {
+    return fetchApi('/api/permission-groups');
+  },
+
+  createPermissionGroup: async (data: { group_name: string; permission_keys: string[] }): Promise<{ code: number; group_id: number }> => {
+    return fetchApi('/api/permission-groups', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updatePermissionGroup: async (groupId: number, data: { group_name?: string; permission_keys: string[] }): Promise<void> => {
+    return fetchApi(`/api/permission-groups/${groupId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deletePermissionGroup: async (groupId: number): Promise<void> => {
+    return fetchApi(`/api/permission-groups/${groupId}`, { method: 'DELETE' });
   },
 
   // Documents

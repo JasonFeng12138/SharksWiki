@@ -60,25 +60,23 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // 查询权限（多个权限组取 OR）
+    // 查询权限（通过 group_permissions 关联表，多个权限组取 OR）
     const [permRows] = await pool.query(
-      `SELECT pg.can_create_dir, pg.can_add_file, pg.can_delete_file, pg.can_edit_file, pg.can_comment
+      `SELECT DISTINCT gp.permission_key
        FROM user_permissions up
-       JOIN permission_groups pg ON up.group_id = pg.group_id
+       JOIN group_permissions gp ON up.group_id = gp.group_id
        WHERE up.user_id = ?`,
       [user.user_id]
     ) as any[];
 
-    const permissions = (permRows as any[]).reduce(
-      (acc: any, row: any) => ({
-        can_create_dir: acc.can_create_dir || Boolean(row.can_create_dir),
-        can_add_file: acc.can_add_file || Boolean(row.can_add_file),
-        can_delete_file: acc.can_delete_file || Boolean(row.can_delete_file),
-        can_edit_file: acc.can_edit_file || Boolean(row.can_edit_file),
-        can_comment: acc.can_comment || Boolean(row.can_comment),
-      }),
-      { can_create_dir: false, can_add_file: false, can_delete_file: false, can_edit_file: false, can_comment: false }
-    );
+    const permissions = {
+      can_read: false, can_comment: false, can_add_file: false,
+      can_edit_file: false, can_create_dir: false, can_delete_file: false, can_admin: false,
+    };
+    for (const row of permRows as any[]) {
+      const key = row.permission_key as keyof typeof permissions;
+      if (key in permissions) permissions[key] = true;
+    }
 
     const tokenPayload = {
       user_id: user.user_id,

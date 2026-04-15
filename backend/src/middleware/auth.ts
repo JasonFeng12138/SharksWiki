@@ -40,3 +40,8 @@ export function requirePermission(permission: keyof Permissions) {
     next();
   };
 }
+
+/** 判断是否为管理员（拥有 can_admin 权限） */
+export function isAdmin(req: AuthRequest): boolean {
+  return Boolean(req.user?.permissions?.can_admin);
+}
