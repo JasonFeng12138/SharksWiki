@@ -82,6 +82,10 @@ docker compose -f docker-compose.db.yml up -d
 docker compose up -d --build
 ```
 
+> **数据持久化**：文档与上传文件均挂载至宿主机 `./data/` 目录，容器删除或重建不会丢失数据。
+> - `./data/docs/` → 容器内 `/app/docs`（Markdown 文档）
+> - `./data/config/` → 容器内 `/app/config`（配置文件与上传附件）
+
 ### 5. 访问
 
 浏览器打开 **http://localhost:3001**
@@ -121,6 +125,9 @@ SharksWiki/
 │       ├── App.tsx             # 根组件（编辑器、文档树、评论）
 │       ├── services/api.ts     # 所有 API 调用封装
 │       └── lib/utils.ts        # 工具函数
+├── data/                       # 📂 宿主机持久化数据（挂载到容器）
+│   ├── docs/                   #   └─ 映射至容器 /app/docs（Markdown 文档）
+│   └── config/                 #   └─ 映射至容器 /app/config（配置与上传文件）
 ├── docker-compose.db.yml       # 数据库服务（独立生命周期）
 ├── docker-compose.yml          # 应用服务
 ├── Dockerfile                  # 多阶段构建

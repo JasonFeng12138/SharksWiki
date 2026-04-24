@@ -34,14 +34,10 @@ services:
     ports:
       - "${APP_PORT:-3001}:3001"
     volumes:
-      - docs_data:/app/docs
-      - config_data:/app/config
+      - ./data/docs:/app/docs
+      - ./data/config:/app/config
     networks:
       - sharkswiki-net
-
-volumes:
-  docs_data:
-  config_data:
 
 networks:
   sharkswiki-net:
